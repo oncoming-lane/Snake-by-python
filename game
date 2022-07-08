@@ -1,0 +1,140 @@
+import pygame
+import sys
+import random
+import pygame_menu
+pygame.init()
+
+SIZE_BLOCK = 20
+COUNT_BLOCK = 30
+MARGIN = 1
+HEADER_MARGIN = 70
+pygame.display.set_caption("Snake")
+size = ((SIZE_BLOCK + MARGIN)* (COUNT_BLOCK) + 2*SIZE_BLOCK, \
+        HEADER_MARGIN + (SIZE_BLOCK + MARGIN)* (COUNT_BLOCK) + 2*SIZE_BLOCK)
+screen = pygame.display.set_mode(size)
+
+WHITE = (255, 255, 255)
+BLUE = (200, 255, 255)
+RED = (230, 0, 0)
+HEADER_COLOR = (0, 204, 153)
+SNAKE_COLOR = (0, 102, 0)
+
+font = pygame.font.SysFont("courier", 36)
+
+class SnakeBlock:
+    def __init__ (self, x, y):
+        self.x = x
+        self.y = y
+    def is_incide(self):
+        return 0<=self.x<COUNT_BLOCK and 0<=self.y<COUNT_BLOCK
+    def __eq__(self, other):
+        return isinstance(other, SnakeBlock) and self.x==other.x and self.y==other.y
+
+
+def draw_block(color, r, c):
+    pygame.draw.rect(screen, color, (SIZE_BLOCK + r * MARGIN + r * SIZE_BLOCK, \
+                                     HEADER_MARGIN + c * MARGIN + (c + 1) * SIZE_BLOCK, SIZE_BLOCK, SIZE_BLOCK))
+
+
+timer = pygame.time.Clock()
+
+
+def start_the_game():
+
+    def get_random_empty_block():
+        x = random.randint(0, COUNT_BLOCK - 1)
+        y = random.randint(0, COUNT_BLOCK - 1)
+        empty_block = SnakeBlock(x, y)
+        while empty_block in snake_blocks:
+            empty_block.x = random.randint(0, COUNT_BLOCK - 1)
+            empty_block.y = random.randint(0, COUNT_BLOCK - 1)
+        return empty_block
+
+    total = 0
+    speed = 1
+    snake_blocks = [ SnakeBlock(9, 10)]
+    drow, dcol = 1, 0
+    brow, bcol = 1, 0
+    # добавляем буферные значения направления движения
+    # для избежания неправильного поведения змейки при быстром нажатии клавиш подряд
+    apple = get_random_empty_block()
+    while 1:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                print('EXIT')
+                quit()
+                sys.exit()
+            # обеспечиваем управление змейкой
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_UP and dcol != 0:
+                    brow, bcol = -1, 0
+                elif e.key == pygame.K_DOWN and dcol != 0:
+                    brow, bcol = 1, 0
+                elif e.key == pygame.K_RIGHT and drow != 0:
+                    brow, bcol = 0, 1
+                elif e.key == pygame.K_LEFT and drow != 0:
+                    brow, bcol = 0, -1
+                else:
+                    pass
+
+        # рисуем верхнюю часть экрана
+        screen.fill((0, 255, 204))
+        pygame.draw.rect(screen, HEADER_COLOR, (0, 0, size[0], HEADER_MARGIN))
+
+        # выводим счет на экран вверху окна
+        text_total = font.render("СЧЕТ:" + str(total), 1, WHITE)
+        screen.blit(text_total, (SIZE_BLOCK, SIZE_BLOCK))
+
+        # выводим скорость на экран вверху окна
+        text_speed = font.render("СКОРОСТь:" + str(speed), 1, WHITE)
+        screen.blit(text_speed, (SIZE_BLOCK+220, SIZE_BLOCK))
+
+        # шахматная раскраска поля
+        for c in range(COUNT_BLOCK):
+            for r in range(COUNT_BLOCK):
+                if c % 2 == 0:
+                    if r % 2 == 0: color = BLUE
+                    else: color = WHITE
+                else:
+                    if r % 2 == 0: color = WHITE
+                    else:  color = BLUE
+                draw_block(color, r, c)
+        # голова в данный момент - последний блок
+        head = snake_blocks[-1]
+
+        # ловим проигрыш
+        if not head.is_incide():
+            print('CRASH')
+            break
+
+        draw_block(RED, apple.x, apple.y) #рисуем яблоко
+        for block in snake_blocks: #рисуем змею
+            draw_block(SNAKE_COLOR, block.x, block.y)
+        pygame.display.flip()
+
+        # рассматриваем случай натыкания змейки на яблоко
+        if apple == head:
+            snake_blocks.append(apple)
+            speed = total//5+1
+            apple = get_random_empty_block()
+            total += 1
+
+        #обеспечиваем движение змейки, поочередно ставя на место головы каждый из блоков
+        drow, dcol = brow, bcol
+        new_head = SnakeBlock(head.x + dcol, head.y + drow)
+        #отлавливаем попадание змейки в саму себя
+        if new_head in snake_blocks:
+            print('CRASH YOURSELF')
+            break
+        snake_blocks.append(new_head)
+        snake_blocks.pop(0)
+
+        timer.tick(speed+8) #скорость
+
+
+menu = pygame_menu.Menu('Змейка', 400, 300,
+                       theme=pygame_menu.themes.THEME_BLUE)
+
+menu.add.button('Играть', start_the_game)
+menu.add.button('Выход', pygame_menu.events.EXIT)
+menu.mainloop(screen)
